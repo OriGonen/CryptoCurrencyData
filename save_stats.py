@@ -89,7 +89,12 @@ def fetch_and_store(pair):
 def schedule_fetching(pairs, interval=30):
     for pair in pairs:
         random_offset = random.uniform(0, 5)  # Add a random delay of 0-5 seconds
-        schedule.every(interval).seconds.at(random_offset).do(fetch_and_store, pair=pair)
+
+        def fetch_with_delay(pair=pair, offset=random_offset):
+            time.sleep(offset)  # Wait for the random offset
+            fetch_and_store(pair=pair)
+
+        schedule.every(interval).seconds.do(fetch_with_delay)
     print(f"Scheduled stats fetching every {interval} seconds with random offsets for pairs: {', '.join(pairs)}")
 
 # Run scheduled jobs
@@ -120,6 +125,7 @@ def query_data(pair, start_time=None, end_time=None):
 
 # Main
 if __name__ == "__main__":
+    print("Starting")
     # Define trading pairs and intervals
     trading_pairs = ["XXBTZUSD", "XETHZUSD", "XDGUSD", "SHIBUSD", "WIFUSD", "DOTUSD", "XXMRZUSD", "SUIUSD", "UNIUSD",
                      "POPCATUSD", "MNGOUSD", "PEPEUSD", "FARMUSD", "POLUSD", "SOLUSD", "ADAUSD", "XXLMZUSD",
