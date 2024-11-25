@@ -1,0 +1,13 @@
+# Byte-compiled files
+*.pyc
+*.pyo
+__pycache__/
+
+# Virtual environment
+.venv/
+
+# PyCharm files
+.idea/
+
+# Environment variables
+secret_dir/secret.txt
