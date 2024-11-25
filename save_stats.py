@@ -119,7 +119,7 @@ def fetch_and_store(pair):
 # Schedule fetching for all pairs with a random delay
 def schedule_fetching(pairs, interval=30):
     for pair in pairs:
-        random_offset = random.uniform(0, 5)  # Add a random delay of 0-5 seconds
+        random_offset = 3 + random.uniform(0, 3)  # Add a random delay of 0-5 seconds
 
         def fetch_with_delay(pair=pair, offset=random_offset):
             time.sleep(offset)  # Wait for the random offset
