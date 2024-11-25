@@ -9,38 +9,69 @@ logging.basicConfig(filename="log.txt", level=logging.INFO, format="%(asctime)s 
 BASE_URL = "https://api.kraken.com"
 
 
-def get_stats(pair):
-    url = f"{BASE_URL}/0/public/Ticker?pair={pair}"
-    response = requests.get(url).json()
-    # print(response['result'][pair])
-    if response.get("error"):
-        logging.error("Kraken API Error: %s", response["error"])
-        return None
-    try:
-        ask = float(response['result'][pair]['a'][0])  # Get the current ask price
-        bid = float(response['result'][pair]['b'][0])
-        close = float(response['result'][pair]['c'][0])
-        volume = float(response['result'][pair]['v'][1])
-        VWAP = float(response['result'][pair]['p'][1])
-        trades = float(response['result'][pair]['t'][1])
-        low = float(response['result'][pair]['l'][1])
-        high = float(response['result'][pair]['h'][1])
-        open = float(response['result'][pair]['o'])
+def get_stats(pair, max_retries=5, initial_wait=10):
+    """
+    Fetch stats for the given trading pair from the Kraken API with retry logic.
+    :param pair: Trading pair (e.g., "XXBTZUSD")
+    :param max_retries: Maximum number of retries
+    :param initial_wait: Initial wait time in seconds for exponential backoff
+    :return: Dictionary of stats or None if retries are exhausted
+    """
+    retries = 0
+    while retries < max_retries:
+        try:
+            url = f"{BASE_URL}/0/public/Ticker?pair={pair}"
+            response = requests.get(url, timeout=10)  # Add timeout to avoid indefinite hangs
+            response.raise_for_status()  # Raise exception for HTTP errors
+            data = response.json()
 
-        return {
-            "a": ask,  # Ask price
-            "b": bid,  # Bid price
-            "c": close,  # Close price
-            "v": volume,  # Volume
-            "p": VWAP,  # Average price
-            "t": trades,  # Trades count
-            "l": low,  # Low price
-            "h": high,  # High price
-            "o": open,  # Open price
-        }
-    except KeyError:
-        logging.error("Price data for %s not found in response.", pair)
-        return None
+            # Handle potential API errors
+            if data.get("error"):
+                logging.error("Kraken API Error for %s: %s", pair, data["error"])
+                return None
+
+            # Parse response data
+            ask = float(data['result'][pair]['a'][0])  # Ask price
+            bid = float(data['result'][pair]['b'][0])
+            close = float(data['result'][pair]['c'][0])
+            volume = float(data['result'][pair]['v'][1])
+            VWAP = float(data['result'][pair]['p'][1])
+            trades = int(data['result'][pair]['t'][1])
+            low = float(data['result'][pair]['l'][1])
+            high = float(data['result'][pair]['h'][1])
+            open = float(data['result'][pair]['o'])
+
+            return {
+                "a": ask,
+                "b": bid,
+                "c": close,
+                "v": volume,
+                "p": VWAP,
+                "t": trades,
+                "l": low,
+                "h": high,
+                "o": open,
+            }
+        except (requests.exceptions.RequestException, KeyError) as e:
+            logging.warning("Error fetching stats for %s: %s", pair, str(e))
+            retries += 1
+            wait_time = initial_wait * (2 ** retries)  # Exponential backoff
+            logging.info("Retrying in %d seconds... (%d/%d)", wait_time, retries, max_retries)
+            time.sleep(wait_time)
+
+    logging.error("Max retries exceeded for %s. Skipping.", pair)
+    return None
+
+
+# Fetch and store stats for a specific pair
+def fetch_and_store(pair):
+    db_name = initialize_db(pair)  # Ensure DB is initialized
+    stats = get_stats(pair)
+    if stats:  # Only store stats if retrieval was successful
+        store_stats(db_name, stats)
+        print(f"[{datetime.now()}] Stored stats for {pair}: {stats}")
+    else:
+        print(f"[{datetime.now()}] Failed to fetch stats for {pair}. Check logs for details.")
 
 
 # Initialize database for a specific pair
